@@ -10,14 +10,14 @@
 
   <body style = "margin: 0; overflow: hidden;"> 
     <eine Szene 
-      vr-mode-ui = "aktiviert: falsch"
+      vr-mode-ui = "aktiviert: false"
        eingebettet 
       arjs = "sourceType: webcam; debugUIEnabled: false;"
      > 
       <a-text 
         value = "Dieser Inhalt wird immer vor Ihnen stehen."
          Look-at = "[GPS-Kamera]"
-         scale = "220 220 220"
+         scale = "100 100 100"
          gps-entity-place = "Breite: 52,5182811; Länge: 13,2612910;"
        > </ a-text> 
       <a-camera GPS-Kamera-Rotationsleser> </ a-Kamera> 
