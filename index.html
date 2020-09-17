@@ -1,13 +1,6 @@
 <html>
-  <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
-  <!-- we import arjs version without NFT but with marker + location based support -->
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  <body style="margin : 0px; overflow: hidden;">
-    <a-scene embedded arjs>
-      <a-assets>
-    <img id="AntiLogo" src="https://github.com/bugi249/artest/blob/master/anti%20logo/pattern-81QtoiRexZL._SL1200_.png">
-  </a-assets>
-           <a-marker-camera preset='custom' type='pattern' url="https://github.com/bugi249/artest/blob/master/anti%20logo/antilogo.patt"></a-marker-camera>
-    </a-scene>
-  </body>
-</html>
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
+<!-- Use it like any other HTML element -->
+<model-viewer src="shared-assets/models/Astronaut.glb" alt="A 3D model of an astronaut" auto-rotate camera-controls>
+  </model-viewer></html>
