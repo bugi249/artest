@@ -1,15 +1,26 @@
-<html>
-  <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
-  <!-- we import arjs version without NFT but with marker + location based support -->
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  <body style="margin : 0px; overflow: hidden;">
-    <a-scene embedded arjs>
-        <a-entity
-          position="0 0 0"
-          scale="0.05 0.05 0.05"
-          gltf-model="https://github.com/bugi249/artest/blob/master/anti%20logo/pattern-81QtoiRexZL._SL1200_.png"
-        ></a-entity>
-           <a-marker-camera preset='custom' type='pattern' url='https://github.com/bugi249/artest/tree/master/anti%20logo/antilogo.patt'></a-marker-camera>
-           </a-scene>
-  </body>
-</html>
+<  html  > 
+  <  Kopf  > 
+    <  meta   charset = " utf-8 " />
+     <  meta   http-equiv = " X-UA-Kompatibel " content = " IE = edge " />
+     <  title  > GeoAR.js Demo </  title  > 
+    <  script   src = " https://aframe.io/releases/1.0.4/aframe.min.js " > </ script>
+    <script src = "https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"> </ script> 
+    <script src = "https: // raw. githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"> </ script> 
+  </ head>
+
+  <body style = "margin: 0; overflow: hidden;"> 
+    <eine Szene 
+      vr-mode-ui = "aktiviert: false"
+       eingebettet 
+      arjs = "sourceType: webcam; debugUIEnabled: false;"
+     > 
+      <a-text 
+        value = "Dieser Inhalt wird immer vor Ihnen stehen."
+         Look-at = "[GPS-Kamera]"
+         scale = "100 100 100"
+         gps-entity-place = "Breite: 52,5182811; Länge: 13,2612910;"
+       > </ a-text> 
+      <a-camera GPS-Kamera-Rotationsleser> </ a-Kamera> 
+    </ a-Szene> 
+  </ body> 
+</ html>
