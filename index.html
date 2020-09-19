@@ -1,17 +1,14 @@
 <!doctype html>
 <!--
-Copyright 2020 The Immersive Web Community Group
-
+Copyright 2018 The Immersive Web Community Group
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so,
 subject to the following conditions:
-
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
@@ -29,99 +26,133 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
 
-    <title>Barebones AR</title>
+    <title>Immersive AR Session</title>
   </head>
   <body>
-    <div id="overlay">
-      <header>
-        <details open>
-          <summary>Barebones WebXR DOM Overlay</summary>
-          <p>
-            This sample demonstrates extremely simple use of an "immersive-ar"
-            session with no library dependencies, with an optional DOM overlay.
-            It doesn't render anything exciting, just draws a rectangle with a
-            slowly changing color to prove it's working.
-            <a class="back" href="./index.html">Back</a>
-          </p>
-          <div id="session-info"></div>
-          <div id="warning-zone"></div>
-          <button id="xr-button" class="barebones-button" disabled>XR not found</button>
-        </details>
-      </header>
-    </div>
-    <main style='text-align: center;'>
-      <p>Click 'Enter AR' to see content</p>
-    </main>
+    <header>
+      <details open>
+        <summary>Immersive AR Session</summary>
+        <p>
+          This sample demonstrates how to use an 'immersive-ar' XRSession to
+          present a simple WebGL scene to an transparent or passthrough XR
+          device. The logic is largely the same as the corresponding VR sample,
+          with the primary difference being that no background is rendered and
+          the model is scaled down for easier viewing in a real-world space.
+          <a class="back" href="./">Back</a>
+        </p>
+      </details>
+    </header>
     <script type="module">
+      import {WebXRButton} from './js/util/webxr-button.js';
+      import {Scene} from './js/render/scenes/scene.js';
+      import {Renderer, createWebGLContext} from './js/render/core/renderer.js';
+      import {SkyboxNode} from './js/render/nodes/skybox.js';
+      import {InlineViewerHelper} from './js/util/inline-viewer-helper.js';
+      import {Gltf2Node} from './js/render/nodes/gltf2.js';
+      import {QueryArgs} from './js/util/query-args.js';
+
+      // If requested, use the polyfill to provide support for mobile devices
+      // and devices which only support WebVR.
+      import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+      if (QueryArgs.getBool('usePolyfill', true)) {
+        let polyfill = new WebXRPolyfill();
+      }
+
       // XR globals.
-      let xrButton = document.getElementById('xr-button');
-      let xrSession = null;
-      let xrRefSpace = null;
+      let xrButton = null;
+      let xrImmersiveRefSpace = null;
+      let inlineViewerHelper = null;
 
       // WebGL scene globals.
       let gl = null;
-
-      function checkSupportedState() {
-        navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-          if (supported) {
-            xrButton.innerHTML = 'Enter AR';
-          } else {
-            xrButton.innerHTML = 'AR not found';
-          }
-
-          xrButton.disabled = !supported;
-        });
-      }
+      let renderer = null;
+      let scene = new Scene();
+      let solarSystem = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
+      // The solar system is big (citation needed). Scale it down so that users
+      // can move around the planets more easily.
+      solarSystem.scale = [0.1, 0.1, 0.1];
+      scene.addNode(solarSystem);
+      // Still adding a skybox, but only for the benefit of the inline view.
+      let skybox = new SkyboxNode({url: 'media/textures/milky-way-4k.png'});
+      scene.addNode(skybox);
 
       function initXR() {
-        if (!window.isSecureContext) {
-          let message = "WebXR unavailable due to insecure context";
-          document.getElementById("warning-zone").innerText = message;
-        }
+        xrButton = new WebXRButton({
+          onRequestSession: onRequestSession,
+          onEndSession: onEndSession,
+          textEnterXRTitle: "START AR",
+          textXRNotFoundTitle: "AR NOT FOUND",
+          textExitXRTitle: "EXIT  AR",
+        });
+        document.querySelector('header').appendChild(xrButton.domElement);
 
         if (navigator.xr) {
-          xrButton.addEventListener('click', onButtonClicked);
-          navigator.xr.addEventListener('devicechange', checkSupportedState);
-          checkSupportedState();
+          // Checks to ensure that 'immersive-ar' mode is available, and only
+          // enables the button if so.
+          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+            xrButton.enabled = supported;
+          });
+
+          navigator.xr.requestSession('inline').then(onSessionStarted);
         }
       }
 
-      function onButtonClicked() {
-        if (!xrSession) {
-            // Ask for an optional DOM Overlay, see https://immersive-web.github.io/dom-overlays/
-            navigator.xr.requestSession('immersive-ar', {
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: {root: document.getElementById('overlay')}
-            }).then(onSessionStarted, onRequestSessionError);
-        } else {
-          xrSession.end();
+      function onRequestSession() {
+        // Requests an 'immersive-ar' session, which ensures that the users
+        // environment will be visible either via video passthrough or a
+        // transparent display. This may be presented either in a headset or
+        // fullscreen on a mobile device.
+        return navigator.xr.requestSession('immersive-ar')
+            .then((session) => {
+              xrButton.setSession(session);
+              session.isImmersive = true;
+              onSessionStarted(session);
+            });
+      }
+
+      function initGL() {
+        if (gl)
+          return;
+
+        gl = createWebGLContext({
+          xrCompatible: true
+        });
+        document.body.appendChild(gl.canvas);
+
+        function onResize() {
+          gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+          gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
         }
+        window.addEventListener('resize', onResize);
+        onResize();
+
+        renderer = new Renderer(gl);
+
+        scene.setRenderer(renderer);
       }
 
       function onSessionStarted(session) {
-        xrSession = session;
-        xrButton.innerHTML = 'Exit AR';
+        session.addEventListener('end', onSessionEnded);
 
-        // Show which type of DOM Overlay got enabled (if any)
-        if (session.domOverlayState) {
-          document.getElementById('session-info').innerHTML = 'DOM Overlay type: ' + session.domOverlayState.type;
+        if (session.isImmersive) {
+          // When in 'immersive-ar' mode don't draw an opaque background because
+          // we want the real world to show through.
+          skybox.visible = false;
         }
 
-        session.addEventListener('end', onSessionEnded);
-        let canvas = document.createElement('canvas');
-        gl = canvas.getContext('webgl', {
-          xrCompatible: true
-        });
+        initGL();
+
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-        session.requestReferenceSpace('local').then((refSpace) => {
-          xrRefSpace = refSpace;
+
+        let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+        session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+          if (session.isImmersive) {
+            xrImmersiveRefSpace = refSpace;
+          } else {
+            inlineViewerHelper = new InlineViewerHelper(gl.canvas, refSpace);
+          }
           session.requestAnimationFrame(onXRFrame);
         });
-      }
-
-      function onRequestSessionError(ex) {
-        alert("Failed to start immersive AR session.");
-        console.error(ex.message);
       }
 
       function onEndSession(session) {
@@ -129,33 +160,31 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        xrSession = null;
-        xrButton.innerHTML = 'Enter AR';
-        document.getElementById('session-info').innerHTML = '';
-        gl = null;
-      }
-
-      function onXRFrame(t, frame) {
-        let session = frame.session;
-        session.requestAnimationFrame(onXRFrame);
-        let pose = frame.getViewerPose(xrRefSpace);
-
-        if (pose) {
-          gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
-
-          // Update the clear color so that we can observe the color in the
-          // headset changing over time. Use a scissor rectangle to keep the AR
-          // scene visible.
-          const width = session.renderState.baseLayer.framebufferWidth;
-          const height = session.renderState.baseLayer.framebufferHeight;
-          gl.enable(gl.SCISSOR_TEST);
-          gl.scissor(width / 4, height / 4, width / 2, height / 2);
-          let time = Date.now();
-          gl.clearColor(Math.cos(time / 2000), Math.cos(time / 4000), Math.cos(time / 6000), 0.5);
-          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (event.session.isImmersive) {
+          xrButton.setSession(null);
+          // Turn the background back on when we go back to the inlive view.
+          skybox.visible = true;
         }
       }
 
+      // Called every time a XRSession requests that a new frame be drawn.
+      function onXRFrame(t, frame) {
+        let session = frame.session;
+        let refSpace = session.isImmersive ?
+                         xrImmersiveRefSpace :
+                         inlineViewerHelper.referenceSpace;
+        let pose = frame.getViewerPose(refSpace);
+
+        scene.startFrame();
+
+        session.requestAnimationFrame(onXRFrame);
+
+        scene.drawXRFrame(frame, pose);
+
+        scene.endFrame();
+      }
+
+      // Start the XR application.
       initXR();
     </script>
   </body>
